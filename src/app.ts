@@ -1,10 +1,10 @@
 import express from 'express';
-import user from './routes/userRouter';
-import { errorHandler } from './middlewares/errorHandler';
+import authRoute from './interfaces/routes/auth.route';
+import { errorHandler } from './interfaces/middlewares/errorHandler';
 
 const app = express();
 
 app.use(express.json());
-app.use('/api/user/v1', user);
+app.use("/auth", authRoute);
 app.use(errorHandler);
 export default app;

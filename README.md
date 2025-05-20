@@ -4,20 +4,28 @@ Repositori ini dibuat untuk kebutuhan backend dengan menggunakan Express.js, Typ
 
 ## Deskripsi
 
-API backend yang dibangun dengan Node.js dan Express.js framework menggunakan TypeScript untuk type safety dan MySQL sebagai database.
+API backend yang dibangun dengan Node.js dan Express.js framework menggunakan TypeScript untuk type safety dan MySQL sebagai database. Proyek ini mengimplementasikan arsitektur clean code dengan pemisahan layer (controllers, services, repositories) untuk memudahkan maintenance dan pengembangan.
 
 ## Struktur Proyek
 
 ```
 express-api/
+├── prisma/                 # Konfigurasi dan migrasi Prisma ORM
+│   ├── migrations/         # File migrasi database
+│   └── schema.prisma       # Schema database Prisma
 ├── src/                    # Direktori utama source code
 │   ├── config/             # Konfigurasi aplikasi dan database
-│   ├── controllers/        # Controller untuk menangani request dan response
-│   ├── middlewares/        # Middleware seperti authentication, error handling
-│   ├── models/             # Model database dan definisi tipe
-│   ├── repositories/       # Repository untuk akses data
-│   ├── routes/             # Definisi routing API
-│   ├── services/           # Business logic
+│   ├── domain/             # Domain layer (Clean Architecture)
+│   │   ├── entities/       # Definisi entitas bisnis
+│   │   ├── repositories/   # Interface repository
+│   │   └── services/       # Service interfaces
+│   ├── interfaces/         # Interface layer
+│   │   ├── controllers/    # Controller untuk menangani request dan response
+│   │   ├── middlewares/    # Middleware seperti authentication, error handling
+│   │   └── routes/         # Definisi routing API
+│   ├── repositories/       # Implementasi repository
+│   ├── types/              # Type definitions
+│   ├── usecase/            # Use case / business logic
 │   ├── utils/              # Fungsi utilitas
 │   └── app.ts              # Konfigurasi Express app
 ├── tests/                  # Unit dan integration tests
@@ -89,13 +97,10 @@ npm run start:prod
 
 ## API Endpoints
 
-### User API
+### Authentication API
 
-- `GET /api/user/v1` - Mendapatkan semua user
-- `GET /api/user/v1/:id` - Mendapatkan user berdasarkan ID
-- `POST /api/user/v1` - Membuat user baru
-- `PUT /api/user/v1/:id` - Mengupdate user
-- `DELETE /api/user/v1/:id` - Menghapus user
+- `POST /api/auth/register` - Registrasi user baru
+- `POST /api/auth/login` - Login user
 
 ## Teknologi yang Digunakan
 
@@ -105,20 +110,84 @@ npm run start:prod
 - **dotenv**: Mengelola environment variables
 - **ESLint & Prettier**: Code linting dan formatting
 - **Nodemon**: Auto-restart server saat development
+- **JWT**: JSON Web Token untuk autentikasi
+- **Prisma**: ORM untuk MySQL
+- **Jest**: Framework untuk unit testing
 
 ## Pengembangan
 
 ### Menambahkan Route Baru
 
-1. Buat controller baru di `src/controllers/`
-2. Buat router baru di `src/routes/`
+1. Buat controller baru di `src/interfaces/controllers/`
+2. Buat router baru di `src/interfaces/routes/`
 3. Daftarkan router di `src/app.ts`
 
 ### Menambahkan Model Baru
 
-1. Buat interface model di `src/models/`
-2. Buat repository untuk model di `src/repositories/`
-3. Buat service untuk business logic di `src/services/`
+1. Buat entity di `src/domain/entities/`
+2. Buat interface repository di `src/domain/repositories/`
+3. Buat implementasi repository di `src/repositories/`
+4. Buat use case di `src/usecase/`
+
+### Koneksi Database
+
+Koneksi database diatur menggunakan Prisma ORM di `src/config/prisma.ts`. Konfigurasi database didefinisikan dalam file `prisma/schema.prisma`.
+
+```typescript
+// src/config/prisma.ts
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export default prisma;
+```
+
+```prisma
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Definisi model database
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+### Middleware Authentication
+
+Middleware untuk autentikasi dapat ditambahkan di `src/interfaces/middlewares/`:
+
+```typescript
+// Contoh middleware autentikasi
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+
+export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+```
 
 ## Testing
 
@@ -126,11 +195,53 @@ npm run start:prod
 npm test
 ```
 
+### Contoh Unit Test
+
+```typescript
+// Contoh test dengan Jest
+import request from 'supertest';
+import app from '../src/app';
+
+describe('User API', () => {
+  it('should get all users', async () => {
+    const res = await request(app).get('/api/user/v1');
+    expect(res.statusCode).toEqual(200);
+    expect(Array.isArray(res.body)).toBeTruthy();
+  });
+});
+```
+
 ## Linting
 
 ```bash
 npm run lint
 ```
+
+## Deployment
+
+### Docker
+
+Proyek ini dapat di-deploy menggunakan Docker. Berikut contoh `Dockerfile`:
+
+```dockerfile
+FROM node:16-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["node", "dist/server.js"]
+```
+
+### CI/CD
+
+Untuk continuous integration dan deployment, dapat menggunakan GitHub Actions atau GitLab CI/CD.
 
 ## Kontribusi
 
@@ -140,6 +251,16 @@ npm run lint
 4. Push ke branch (`git push origin feature/amazing-feature`)
 5. Buat Pull Request
 
+## Best Practices
+
+- Gunakan TypeScript strict mode untuk type safety
+- Implementasikan error handling yang konsisten
+- Validasi input request menggunakan middleware
+- Gunakan environment variables untuk konfigurasi
+- Implementasikan logging untuk debugging
+- Gunakan transaction untuk operasi database yang kompleks
+- Buat dokumentasi API dengan Swagger/OpenAPI
+
 ## Lisensi
 
 ISC
@@ -147,3 +268,7 @@ ISC
 ## Author
 
 Hanif Kharismadini
+
+## Versi
+
+1.0.0 - Initial release
