@@ -99,8 +99,8 @@ npm run start:prod
 
 ### Authentication API
 
-- `POST /api/auth/register` - Registrasi user baru
-- `POST /api/auth/login` - Login user
+- `POST /auth/register` - Registrasi user baru
+- `POST /auth/login` - Login user
 
 ## Teknologi yang Digunakan
 

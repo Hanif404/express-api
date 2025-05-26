@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { AuthUseCase } from "../../usecase/auth/auth.usecase";
-import { UserRepository } from "../../repositories/user.repository";
+import { UserRepository } from "../../domain/repositories-impl/user.repository.impl";
 
 const authUseCase = new AuthUseCase(new UserRepository());
 

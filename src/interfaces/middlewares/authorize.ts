@@ -1,12 +1,17 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import status from "http-status";
-import prisma from "../../config/prisma";
+import { prisma } from "../../config/prisma";
+import MessageError from "../../utils/error/MessageError";
 
 export const authorize = (permissions: string[] = []) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return res.sendStatus(status.UNAUTHORIZED);
+    if (!authHeader) throw new MessageError({
+      code: "ERR_UNAUTHORIZED",
+      message: status[401],
+      statusCode: status.UNAUTHORIZED
+    });
     const token = authHeader.split(" ")[1];
 
     try {
@@ -16,24 +21,35 @@ export const authorize = (permissions: string[] = []) => {
       const user = await prisma.user.findUnique({
         where: { id: decoded.id },
         include: {
-          roles: { include: { permissions: true } },
-          permissions: true,
+          RoleUser: { include: { role: { include: { PermissionRole: { include: { permission: true } } } } } },
+          PermissionUser: { include: { permission: true } },
         },
       });
 
-      if (!user) return res.sendStatus(status.FORBIDDEN);
+      if (!user) throw new MessageError({
+        code: "ERR_UNAUTHORIZED",
+        message: status[403],
+        statusCode: status.FORBIDDEN
+      });
 
       const userPerms = new Set([
-        ...user.permissions.map((p: { name: any; }) => p.name),
-        ...user.roles.flatMap((r: { permissions: any[]; }) => r.permissions.map((p: { name: any; }) => p.name)),
+        ...user.RoleUser.flatMap(r => r.role.name),
       ]);
 
       const hasPerm = permissions.every(p => userPerms.has(p));
-      if (!hasPerm) return res.sendStatus(status.FORBIDDEN);
+      if (!hasPerm) throw new MessageError({
+        code: "ERR_UNAUTHORIZED",
+        message: status[403],
+        statusCode: status.FORBIDDEN
+      });
 
       next();
     } catch (err) {
-      res.status(status.UNAUTHORIZED).json({ error: status[401] });
+      throw new MessageError({
+        code: "ERR_UNAUTHORIZED",
+        message: status[401],
+        statusCode: status.UNAUTHORIZED
+      });
     }
   };
 };

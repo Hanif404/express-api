@@ -1,4 +1,4 @@
-import { IUserRepository } from "../../domain/repositories/user.interface";
+import { IUserRepository } from "../../domain/repositories/user.repository";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../../utils/jwt";
 
